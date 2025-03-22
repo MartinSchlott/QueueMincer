@@ -1,110 +1,187 @@
 # QueueMincer
 
-QueueMincer is a configurable MCP (Model Context Protocol) server for managing item queues. It provides tools for reading, writing, and manipulating queues with configurable naming, visibility, and parameter exposure for different agent types.
+A configurable MCP (Model Context Protocol) server for managing flexible item queues with dynamic tool configurations.
 
-## Features
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-- Configure custom tools with different names and parameters exposed
-- Support for different data sources (memory, JSON files, CSV files, Google Sheets)
-- Dynamic queue operations (get, push, load from templates)
-- Flexible configuration options for tools and queue behavior
+## Overview
 
-## Installation
+QueueMincer provides a customizable queue management system available through the Anthropic Model Context Protocol (MCP). It allows different AI agents to interact with the same queue infrastructure using agent-specific terminology and access controls.
 
-```bash
-# Clone the repository
-git clone https://github.com/your-repo/queuemincer.git
-cd queuemincer
+## Motivation
 
-# Install dependencies
-npm install
+When working with multiple AI agents in a workflow, each may have different requirements for how they access and manipulate queues:
+- Some agents need read-only access
+- Others need write-only access
+- Some might use task-specific terminology ("readTodo" vs "getNextTask")
+- Different queue storage backends may be required
 
-# Build the project
-npm run build
-```
+QueueMincer solves these challenges by providing:
+- Configurable tool names and visibility
+- Multiple storage backends (JSON, CSV, Google Sheets, memory)
+- Parameter exposure control
+- Flexible item schema validation
 
-## Usage
+## An AI-Assisted Project
 
-1. Create a configuration file (see `config.json` for an example)
-2. Start the server:
+QueueMincer was developed through human-AI collaboration:
 
-```bash
-# Using the default config.json in the current directory
-npm start
+- Initial specifications were drafted with ChatGPT-4o
+- Specifications were refined and improved with Claude 3.7 Sonnet
+- Implementation was done by Claude 3.7 Max (taking approximately 10 minutes with 40 tool calls)
+- Human direction provided by Martin Schlott
 
-# Or specify a custom configuration file
-npm start -- /path/to/config.json
-```
+The project demonstrates effective development strategies:
+- Creating all interfaces first before implementation
+- Building a complete skeleton with stub implementations
+- Iteratively implementing components
+- Debugging was completed in approximately 1 hour
+- Only one correction cycle was needed
+
+## Key Features
+
+### Dynamic Tool Configuration
+
+- Tools can be renamed for different agent contexts (e.g., "get" → "readTodo")
+- Visibility of each tool can be controlled
+- Parameter exposure is configurable (e.g., whether direction is exposed)
+- Default values can be specified
+
+### Multiple Storage Options
+
+- **JSON Files**: Queue items stored in JSON format
+- **CSV Files**: Items in tabular format
+- **Google Sheets**: Remote spreadsheet-based storage
+- **Memory**: In-memory queue for testing and development
+
+### Configurable Operation Modes
+
+- **Get**: Read items from front/back of the queue
+- **Push**: Add items to front/back of the queue
+- **Load**: Reset/replace queue from templates
+
+### Built-in Debug Support
+
+- Inspector-based debugging even in stdio mode
+- Configurable port and breakpoint settings
+- Helpful for development in MCP environment
 
 ## Configuration
 
-QueueMincer is configured using a JSON file with two main sections:
-
-### Tools Configuration
-
-Configures how tools are exposed to the AI assistant:
+QueueMincer is configured via a JSON file with a structure like:
 
 ```json
-"tools": {
-  "get": {
-    "alias": "readTodo",
-    "visible": true,
-    "directionExposed": false,
-    "default": "front",
-    "description": "Get the next task from the queue"
+{
+  "tools": {
+    "get": {
+      "alias": "readTodo",
+      "visible": true,
+      "directionExposed": false,
+      "default": "front",
+      "description": "Get the next task from the queue"
+    },
+    "push": {
+      "alias": "writeTodo",
+      "visible": true,
+      "directionExposed": true,
+      "default": "back",
+      "description": "Add a new task to the queue"
+    },
+    "load": {
+      "alias": "resetTasks",
+      "visible": true,
+      "templateIdExposed": true,
+      "actionExposed": true,
+      "default": "replace",
+      "description": "Load tasks from template"
+    }
   },
-  "push": {
-    "alias": "writeTodo",
-    "visible": true,
-    "directionExposed": true,
-    "default": "back",
-    "description": "Add a new task to the queue"
+  "queue": {
+    "loader": "memory",
+    "inMemory": true,
+    "put": true,
+    "itemTemplate": {
+      "task": "string",
+      "done": "boolean",
+      "due": "string",
+      "priority": "number"
+    }
   },
-  "load": {
-    "alias": "resetTasks",
-    "visible": true,
-    "templateIdExposed": true,
-    "actionExposed": true,
-    "default": "replace",
-    "description": "Load tasks from template"
+  "debug": {
+    "active": true,
+    "port": 9229,
+    "break": true
   }
 }
 ```
 
-### Queue Configuration
+## Example Usage
 
-Configures the data source and item structure:
+### Basic Memory Queue
 
 ```json
-"queue": {
-  "loader": "memory",
-  "inMemory": true,
-  "put": true,
-  "itemTemplate": {
-    "task": "string",
-    "done": "boolean",
-    "due": "string",
-    "priority": "number"
+{
+  "tools": {
+    "get": {
+      "alias": "getNextTask"
+    },
+    "push": {
+      "alias": "addTask"
+    }
+  },
+  "queue": {
+    "loader": "memory",
+    "inMemory": true,
+    "put": true,
+    "itemTemplate": {
+      "task": "string",
+      "priority": "number",
+      "assignee": "string"
+    }
   }
 }
 ```
 
-## Data Sources
+### JSON File Queue with Limited Access
 
-QueueMincer supports several data sources:
-
-- **Memory**: In-memory queue with no persistence
-- **JSON**: Load items from JSON files
-- **CSV**: Load items from CSV files
-- **Google Sheets**: Load items from Google Sheets
-
-## Development
-
-```bash
-# Run in development mode with auto-reloading
-npm run dev
+```json
+{
+  "tools": {
+    "get": {
+      "visible": true
+    },
+    "push": {
+      "visible": false
+    },
+    "load": {
+      "alias": "reloadQueue",
+      "visible": true,
+      "templateIdExposed": true
+    }
+  },
+  "queue": {
+    "loader": "json",
+    "inMemory": true
+  }
+}
 ```
+
+## Development Notes
+
+The implementation follows strict TypeScript coding guidelines with a focus on:
+
+- Clear separation of concerns
+- Interface-first development
+- Modular components
+- Defensive programming with validation
+- Simplified error handling
+
+The project structure separates configuration, loaders, tools, and queue management into distinct modules.
 
 ## License
 
-ISC 
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+---
+
+*"QueueMincer: Flexible queue management for AI agent workflows, taming complexity through configuration."*

@@ -47,9 +47,50 @@ export class PushTool implements QueueMincerTool {
    * Get the input schema for the tool
    */
   getInputSchema(): any {
-    // Start with required item parameter
+    // Build item schema based on queue's item template
+    let itemSchema: z.ZodTypeAny;
+    
+    // Get item schema from QueueManager
+    const queueItemSchema = (this.queueManager as any).itemTemplate;
+    
+    if (queueItemSchema && typeof queueItemSchema === 'object') {
+      // Create a Zod schema based on the queue item template
+      const schemaShape: Record<string, z.ZodTypeAny> = {};
+      
+      for (const [key, type] of Object.entries(queueItemSchema)) {
+        // Convert the string type to corresponding Zod type
+        switch (String(type).toLowerCase()) {
+          case 'string':
+            schemaShape[key] = z.string();
+            break;
+          case 'number':
+            schemaShape[key] = z.number();
+            break;
+          case 'boolean':
+            schemaShape[key] = z.boolean();
+            break;
+          case 'object':
+            schemaShape[key] = z.record(z.any());
+            break;
+          case 'array':
+            schemaShape[key] = z.array(z.any());
+            break;
+          default:
+            // For unknown types, use any
+            schemaShape[key] = z.any();
+        }
+      }
+      
+      itemSchema = z.object(schemaShape);
+    } else {
+      // Fallback to generic object if no schema is defined
+      itemSchema = z.record(z.any());
+      logger.info(`No specific item schema found, using generic object schema`);
+    }
+    
+    // Start with required item parameter using the determined schema
     let schema = z.object({
-      item: z.record(z.any())
+      item: itemSchema
     });
     
     // Add direction parameter if exposed
