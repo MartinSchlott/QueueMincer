@@ -26,8 +26,8 @@ QueueMincer solves these challenges by providing:
 
 QueueMincer was developed through human-AI collaboration:
 
-- Initial specifications were drafted with ChatGPT-4o
-- Specifications were refined and improved with Claude 3.7 Sonnet
+- Initial specifications were drafted with ChatGPT-4o (2h)
+- Specifications were refined and improved with Claude 3.7 Sonnet (3h)
 - Implementation was done by Claude 3.7 Max (taking approximately 10 minutes with 40 tool calls)
 - Human direction provided by Martin Schlott
 
