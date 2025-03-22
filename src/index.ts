@@ -66,12 +66,12 @@ const main = async (): Promise<void> => {
     initializeDebugger(config.debug);
     
     // Create components
-    const loader = await createLoader(config.queue);
+    const loader = createLoader(config.queue);
     const queueManager = new DefaultQueueManager(config.queue, loader);
     await queueManager.initialize();
     
     // Create and register tools
-    const tools = await createTools(config, queueManager);
+    const tools = createTools(config, queueManager);
     
     // Create and start MCP server
     const server = new QueueMincerServer(config);

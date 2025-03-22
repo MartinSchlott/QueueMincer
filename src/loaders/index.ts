@@ -4,6 +4,10 @@
 
 import { QueueConfig } from '../config/types.js';
 import * as logger from '../utils/logger.js';
+import { MemoryLoader } from './memory-loader.js';
+import { JsonLoader } from './json-loader.js';
+import { CsvLoader } from './csv-loader.js';
+import { GoogleSheetLoader } from './googlesheet-loader.js';
 
 /**
  * Common interface for all queue loaders
@@ -40,19 +44,15 @@ export interface QueueLoader {
  * @param config The queue configuration
  * @returns A QueueLoader instance
  */
-export async function createLoader(config: QueueConfig): Promise<QueueLoader> {
+export function createLoader(config: QueueConfig): QueueLoader {
   switch (config.loader) {
     case 'memory':
-      const { MemoryLoader } = await import('./memory-loader.js');
       return new MemoryLoader(config);
     case 'json':
-      const { JsonLoader } = await import('./json-loader.js');
       return new JsonLoader(config);
     case 'csv':
-      const { CsvLoader } = await import('./csv-loader.js');
       return new CsvLoader(config);
     case 'googleSheet':
-      const { GoogleSheetLoader } = await import('./googlesheet-loader.js');
       return new GoogleSheetLoader(config);
     default:
       // This should never happen due to TypeScript, but as a fallback:
