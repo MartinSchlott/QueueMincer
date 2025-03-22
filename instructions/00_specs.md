@@ -42,7 +42,8 @@ The configuration consists of two main sections:
           "type": "string", 
           "enum": ["front", "back"] 
         },
-        "description": { "type": "string" }
+        "description": { "type": "string" },
+        "emptyQueueMessage": { "type": "string" }
       },
       "additionalProperties": false
     },

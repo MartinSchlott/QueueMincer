@@ -18,6 +18,7 @@ export class GetTool implements QueueMincerTool {
   private readonly description: string;
   private readonly directionExposed: boolean;
   private readonly defaultDirection: 'front' | 'back';
+  private readonly emptyQueueMessage: string;
   
   constructor(
     private config: GetToolConfig,
@@ -27,6 +28,7 @@ export class GetTool implements QueueMincerTool {
     this.description = config.description || 'Get the next item from the queue';
     this.directionExposed = config.directionExposed || false;
     this.defaultDirection = config.default || 'front';
+    this.emptyQueueMessage = config.emptyQueueMessage || 'Queue is empty';
   }
   
   /**
@@ -84,7 +86,7 @@ export class GetTool implements QueueMincerTool {
       
       // If no item was found, return a message
       if (item === null) {
-        return errorHandler.createSuccessResponse('Queue is empty');
+        return errorHandler.createSuccessResponse(this.emptyQueueMessage);
       }
       
       // Return the item as a JSON string

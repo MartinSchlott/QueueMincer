@@ -23,6 +23,7 @@ export interface BaseToolConfig {
 export interface GetToolConfig extends BaseToolConfig {
   directionExposed?: boolean;
   default?: 'front' | 'back';
+  emptyQueueMessage?: string;
 }
 
 export interface PushToolConfig extends BaseToolConfig {

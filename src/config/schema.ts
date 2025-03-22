@@ -15,7 +15,8 @@ const baseToolConfigSchema = z.object({
 // Get tool configuration schema
 const getToolConfigSchema = baseToolConfigSchema.extend({
   directionExposed: z.boolean().optional().default(false),
-  default: z.enum(['front', 'back']).optional().default('front')
+  default: z.enum(['front', 'back']).optional().default('front'),
+  emptyQueueMessage: z.string().optional()
 });
 
 // Push tool configuration schema

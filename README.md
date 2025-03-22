@@ -35,8 +35,8 @@ The project demonstrates effective development strategies:
 - Creating all interfaces first before implementation
 - Building a complete skeleton with stub implementations
 - Iteratively implementing components
-- Debugging was completed in approximately 1 hour
-- Only one correction cycle was needed
+- Debugging was completed in approximately 2 hour
+- Only one correction cycle was needed (it was the humans fault)
 
 ## Key Features
 
