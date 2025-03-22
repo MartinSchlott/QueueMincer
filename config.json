@@ -1,0 +1,42 @@
+{
+  "tools": {
+    "get": {
+      "alias": "readTodo",
+      "visible": true,
+      "directionExposed": false,
+      "default": "front",
+      "description": "Get the next task from the queue"
+    },
+    "push": {
+      "alias": "writeTodo",
+      "visible": true,
+      "directionExposed": true,
+      "default": "back",
+      "description": "Add a new task to the queue"
+    },
+    "load": {
+      "alias": "resetTasks",
+      "visible": true,
+      "templateIdExposed": true,
+      "actionExposed": true,
+      "default": "replace",
+      "description": "Load tasks from template"
+    }
+  },
+  "queue": {
+    "loader": "memory",
+    "inMemory": true,
+    "put": true,
+    "itemTemplate": {
+      "task": "string",
+      "done": "boolean",
+      "due": "string",
+      "priority": "number"
+    }
+  },
+  "debug": {
+    "active": false,
+    "port": 9229,
+    "break": false
+  }
+} 

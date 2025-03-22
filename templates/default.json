@@ -1,0 +1,32 @@
+[
+  {
+    "task": "Implement QueueMincer project",
+    "done": false,
+    "due": "2023-03-25",
+    "priority": 1
+  },
+  {
+    "task": "Write documentation",
+    "done": false,
+    "due": "2023-03-26",
+    "priority": 2
+  },
+  {
+    "task": "Test with Claude",
+    "done": false,
+    "due": "2023-03-27",
+    "priority": 3
+  },
+  {
+    "task": "Fix bugs",
+    "done": false,
+    "due": "2023-03-28",
+    "priority": 2
+  },
+  {
+    "task": "Deploy to production",
+    "done": false,
+    "due": "2023-03-30",
+    "priority": 1
+  }
+] 
