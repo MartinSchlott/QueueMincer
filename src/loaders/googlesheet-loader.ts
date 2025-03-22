@@ -24,6 +24,7 @@ export class GoogleSheetLoader implements QueueLoader {
   private sheets: sheets_v4.Sheets | null = null;
   private spreadsheetId: string | null = null;
   private availableSheets: string[] = [];
+  private activeSheet: string | null = null;
   
   constructor(private config: QueueConfig) {
     if (config.loader !== 'googleSheet') {
@@ -82,6 +83,7 @@ export class GoogleSheetLoader implements QueueLoader {
       // Load first sheet if any exists
       if (this.availableSheets.length > 0) {
         const defaultSheet = this.availableSheets[0];
+        this.activeSheet = defaultSheet;
         const items = await this.loadSheet(defaultSheet);
         
         if (items.length > 0 && !this.config.itemTemplate) {
@@ -115,14 +117,19 @@ export class GoogleSheetLoader implements QueueLoader {
       return [...this.cachedItems];
     }
     
-    // If no default sheet is available, return empty array
-    if (this.availableSheets.length === 0) {
+    // If no active sheet is set, use the first available one
+    if (!this.activeSheet && this.availableSheets.length > 0) {
+      this.activeSheet = this.availableSheets[0];
+    }
+    
+    // If no active sheet is available, return empty array
+    if (!this.activeSheet) {
       return [];
     }
     
-    // Load from first available sheet
+    // Load from active sheet
     try {
-      return await this.loadSheet(this.availableSheets[0]);
+      return await this.loadSheet(this.activeSheet);
     } catch (error) {
       logger.error('Failed to load items from Google Sheet', error);
       return [];
@@ -133,6 +140,14 @@ export class GoogleSheetLoader implements QueueLoader {
    * Load items from a specific template (sheet name)
    */
   async loadTemplate(templateId: string): Promise<any[]> {
+    // Check if the sheet exists
+    if (!this.availableSheets.includes(templateId)) {
+      throw new Error(`Sheet ${templateId} not found`);
+    }
+    
+    // Set active sheet
+    this.activeSheet = templateId;
+    
     try {
       const items = await this.loadSheet(templateId);
       
@@ -163,6 +178,109 @@ export class GoogleSheetLoader implements QueueLoader {
   }
   
   /**
+   * Save the complete list of items to the source
+   */
+  async saveItems(items: any[]): Promise<void> {
+    // If in-memory mode, just update the cache
+    if (this.config.inMemory) {
+      this.cachedItems = [...items];
+      return;
+    }
+    
+    // If no active sheet is set, use the first available one or create a new one
+    if (!this.activeSheet) {
+      if (this.availableSheets.length > 0) {
+        this.activeSheet = this.availableSheets[0];
+      } else {
+        this.activeSheet = 'Sheet1';
+        await this.createSheet(this.activeSheet);
+      }
+    }
+    
+    // Write to the active sheet
+    await this.writeSheet(this.activeSheet, items);
+    logger.debug(`Saved ${items.length} items to Google Sheet: ${this.activeSheet}`);
+  }
+  
+  /**
+   * Add a single item to the source at the front
+   */
+  async addItemFront(item: any): Promise<void> {
+    // If in-memory mode, just update the cache
+    if (this.config.inMemory) {
+      this.cachedItems.unshift(item);
+      return;
+    }
+    
+    // Otherwise, load all items, add the new one, and save back
+    const items = await this.getItems();
+    items.unshift(item);
+    await this.saveItems(items);
+  }
+  
+  /**
+   * Add a single item to the source at the back
+   */
+  async addItemBack(item: any): Promise<void> {
+    // If in-memory mode, just update the cache
+    if (this.config.inMemory) {
+      this.cachedItems.push(item);
+      return;
+    }
+    
+    // Otherwise, load all items, add the new one, and save back
+    const items = await this.getItems();
+    items.push(item);
+    await this.saveItems(items);
+  }
+  
+  /**
+   * Remove and return an item from the front of the source
+   */
+  async removeItemFront(): Promise<any | null> {
+    // If in-memory mode, operate on the cache
+    if (this.config.inMemory) {
+      if (this.cachedItems.length === 0) {
+        return null;
+      }
+      return this.cachedItems.shift() || null;
+    }
+    
+    // Otherwise, load all items, remove the first one, and save back
+    const items = await this.getItems();
+    if (items.length === 0) {
+      return null;
+    }
+    
+    const item = items.shift();
+    await this.saveItems(items);
+    return item;
+  }
+  
+  /**
+   * Remove and return an item from the back of the source
+   */
+  async removeItemBack(): Promise<any | null> {
+    // If in-memory mode, operate on the cache
+    if (this.config.inMemory) {
+      if (this.cachedItems.length === 0) {
+        return null;
+      }
+      return this.cachedItems.pop() || null;
+    }
+    
+    // Otherwise, load all items, remove the last one, and save back
+    const items = await this.getItems();
+    if (items.length === 0) {
+      return null;
+    }
+    
+    const item = items.pop();
+    await this.saveItems(items);
+    return item;
+  }
+  
+  /**
    * Get authentication for Google Sheets API
    */
   private async getAuth(credentials: any): Promise<any> {
@@ -176,7 +294,7 @@ export class GoogleSheetLoader implements QueueLoader {
       const auth = new google.auth.JWT({
         email: credentials.client_email,
         key: credentials.private_key,
-        scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly']
+        scopes: ['https://www.googleapis.com/auth/spreadsheets']
       });
       
       // Verify authentication
@@ -245,6 +363,103 @@ export class GoogleSheetLoader implements QueueLoader {
     } catch (error) {
       logger.error(`Failed to load sheet: ${sheetName}`, error);
       throw new Error(`Failed to load sheet: ${sheetName}`);
+    }
+  }
+  
+  /**
+   * Create a new sheet in the spreadsheet
+   */
+  private async createSheet(sheetName: string): Promise<void> {
+    if (!this.sheets || !this.spreadsheetId) {
+      throw new Error('Google Sheets API not initialized');
+    }
+    
+    try {
+      await this.sheets.spreadsheets.batchUpdate({
+        spreadsheetId: this.spreadsheetId,
+        requestBody: {
+          requests: [
+            {
+              addSheet: {
+                properties: {
+                  title: sheetName
+                }
+              }
+            }
+          ]
+        }
+      });
+      
+      // Add to available sheets
+      if (!this.availableSheets.includes(sheetName)) {
+        this.availableSheets.push(sheetName);
+      }
+      
+      logger.debug(`Created new sheet: ${sheetName}`);
+    } catch (error) {
+      logger.error(`Failed to create sheet: ${sheetName}`, error);
+      throw new Error(`Failed to create sheet: ${sheetName}`);
+    }
+  }
+  
+  /**
+   * Write data to a sheet
+   */
+  private async writeSheet(sheetName: string, data: any[]): Promise<void> {
+    if (!this.sheets || !this.spreadsheetId) {
+      throw new Error('Google Sheets API not initialized');
+    }
+    
+    try {
+      // Clear existing sheet content
+      await this.sheets.spreadsheets.values.clear({
+        spreadsheetId: this.spreadsheetId,
+        range: sheetName
+      });
+      
+      if (data.length === 0) {
+        // If no data, nothing to write
+        return;
+      }
+      
+      // Extract headers from the first object
+      const headers = Object.keys(data[0]);
+      
+      // Prepare rows (starting with headers)
+      const rows = [headers];
+      
+      // Add data rows
+      for (const item of data) {
+        const row = headers.map(header => {
+          const value = item[header];
+          
+          // Convert values to string for sheets
+          if (value === null || value === undefined) {
+            return '';
+          } else if (typeof value === 'object') {
+            return JSON.stringify(value);
+          } else {
+            return String(value);
+          }
+        });
+        
+        rows.push(row);
+      }
+      
+      // Write to sheet
+      await this.sheets.spreadsheets.values.update({
+        spreadsheetId: this.spreadsheetId,
+        range: sheetName,
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: rows
+        }
+      });
+      
+      logger.debug(`Updated sheet: ${sheetName} with ${data.length} items`);
+    } catch (error) {
+      logger.error(`Failed to write sheet: ${sheetName}`, error);
+      throw new Error(`Failed to write sheet: ${sheetName}`);
     }
   }
   

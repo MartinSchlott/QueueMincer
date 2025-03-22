@@ -20,6 +20,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.7.0",
     "csv-parser": "^3.2.0",
+    "csv-stringify": "^6.5.2",
     "googleapis": "^148.0.0",
     "zod": "^3.24.2",
     "zod-to-json-schema": "^3.24.5"

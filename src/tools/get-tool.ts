@@ -74,12 +74,12 @@ export class GetTool implements QueueMincerTool {
         ? (params.direction || this.defaultDirection)
         : this.defaultDirection;
       
-      // Get the item
+      // Get the item asynchronously
       let item;
       if (direction === 'front') {
-        item = this.queueManager.getFront();
+        item = await this.queueManager.getFront();
       } else {
-        item = this.queueManager.getBack();
+        item = await this.queueManager.getBack();
       }
       
       // If no item was found, return a message

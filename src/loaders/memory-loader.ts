@@ -68,4 +68,55 @@ export class MemoryLoader implements QueueLoader {
   getItemSchema(): Record<string, string> | null {
     return this.config.itemTemplate || null;
   }
+  
+  /**
+   * Save the complete list of items to the source
+   */
+  async saveItems(items: any[]): Promise<void> {
+    // For memory loader, just replace the internal array
+    this.items = [...items];
+    logger.debug(`Memory loader saved ${items.length} items`);
+  }
+  
+  /**
+   * Add a single item to the source at the front
+   */
+  async addItemFront(item: any): Promise<void> {
+    // Add item to the front of the array
+    this.items.unshift(item);
+    logger.debug('Memory loader added item to front');
+  }
+  
+  /**
+   * Add a single item to the source at the back
+   */
+  async addItemBack(item: any): Promise<void> {
+    // Add item to the back of the array
+    this.items.push(item);
+    logger.debug('Memory loader added item to back');
+  }
+  
+  /**
+   * Remove and return an item from the front of the source
+   */
+  async removeItemFront(): Promise<any | null> {
+    if (this.items.length === 0) {
+      return null;
+    }
+    
+    // Remove and return first item
+    return this.items.shift() || null;
+  }
+  
+  /**
+   * Remove and return an item from the back of the source
+   */
+  async removeItemBack(): Promise<any | null> {
+    if (this.items.length === 0) {
+      return null;
+    }
+    
+    // Remove and return last item
+    return this.items.pop() || null;
+  }
 } 

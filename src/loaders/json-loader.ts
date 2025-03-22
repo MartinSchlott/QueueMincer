@@ -20,6 +20,7 @@ export class JsonLoader implements QueueLoader {
   private initialized = false;
   private itemSchema: Record<string, string> | null = null;
   private cachedItems: any[] = [];
+  private activeFile: string | null = null;
   
   constructor(private config: QueueConfig) {
     if (config.loader !== 'json') {
@@ -50,6 +51,7 @@ export class JsonLoader implements QueueLoader {
       
       if (jsonFiles.length > 0) {
         const defaultFile = jsonFiles[0];
+        this.activeFile = defaultFile;
         const items = await this.loadJsonFile(defaultFile);
         
         if (items.length > 0 && !this.config.itemTemplate) {
@@ -82,19 +84,25 @@ export class JsonLoader implements QueueLoader {
       return [...this.cachedItems];
     }
     
-    // If no items are cached, load from the first available JSON file
-    try {
-      const files = await fs.readdir(TEMPLATES_DIR);
-      const jsonFiles = files.filter(file => file.endsWith('.json'));
-      
-      if (jsonFiles.length > 0) {
-        return await this.loadJsonFile(jsonFiles[0]);
+    // If no active file, load from the first available JSON file
+    if (!this.activeFile) {
+      try {
+        const files = await fs.readdir(TEMPLATES_DIR);
+        const jsonFiles = files.filter(file => file.endsWith('.json'));
+        
+        if (jsonFiles.length > 0) {
+          this.activeFile = jsonFiles[0];
+          return await this.loadJsonFile(jsonFiles[0]);
+        }
+      } catch (error) {
+        logger.error('Failed to load items', error);
       }
-    } catch (error) {
-      logger.error('Failed to load items', error);
+      
+      return [];
     }
     
-    return [];
+    // Load from active file
+    return await this.loadJsonFile(this.activeFile);
   }
   
   /**
@@ -102,6 +110,7 @@ export class JsonLoader implements QueueLoader {
    */
   async loadTemplate(templateId: string): Promise<any[]> {
     const filename = this.getFilenameFromTemplateId(templateId);
+    this.activeFile = filename;
     
     try {
       const items = await this.loadJsonFile(filename);
@@ -141,6 +150,104 @@ export class JsonLoader implements QueueLoader {
   }
   
   /**
+   * Save the complete list of items to the source
+   */
+  async saveItems(items: any[]): Promise<void> {
+    // If we're working with in-memory mode, just update the cache
+    if (this.config.inMemory) {
+      this.cachedItems = [...items];
+      return;
+    }
+    
+    // If no active file, create one
+    if (!this.activeFile) {
+      this.activeFile = 'queue.json';
+    }
+    
+    // Save to the active file
+    await this.saveJsonFile(this.activeFile, items);
+    logger.debug(`Saved ${items.length} items to ${this.activeFile}`);
+  }
+  
+  /**
+   * Add a single item to the source at the front
+   */
+  async addItemFront(item: any): Promise<void> {
+    // If working in-memory, delegate to memory operations
+    if (this.config.inMemory) {
+      this.cachedItems.unshift(item);
+      return;
+    }
+    
+    // Otherwise, load all items, add the new one, and save back
+    const items = await this.getItems();
+    items.unshift(item);
+    await this.saveItems(items);
+  }
+  
+  /**
+   * Add a single item to the source at the back
+   */
+  async addItemBack(item: any): Promise<void> {
+    // If working in-memory, delegate to memory operations
+    if (this.config.inMemory) {
+      this.cachedItems.push(item);
+      return;
+    }
+    
+    // Otherwise, load all items, add the new one, and save back
+    const items = await this.getItems();
+    items.push(item);
+    await this.saveItems(items);
+  }
+  
+  /**
+   * Remove and return an item from the front of the source
+   */
+  async removeItemFront(): Promise<any | null> {
+    // If working in-memory, delegate to memory operations
+    if (this.config.inMemory) {
+      if (this.cachedItems.length === 0) {
+        return null;
+      }
+      return this.cachedItems.shift() || null;
+    }
+    
+    // Otherwise, load all items, remove the first one, and save back
+    const items = await this.getItems();
+    if (items.length === 0) {
+      return null;
+    }
+    
+    const item = items.shift();
+    await this.saveItems(items);
+    return item;
+  }
+  
+  /**
+   * Remove and return an item from the back of the source
+   */
+  async removeItemBack(): Promise<any | null> {
+    // If working in-memory, delegate to memory operations
+    if (this.config.inMemory) {
+      if (this.cachedItems.length === 0) {
+        return null;
+      }
+      return this.cachedItems.pop() || null;
+    }
+    
+    // Otherwise, load all items, remove the last one, and save back
+    const items = await this.getItems();
+    if (items.length === 0) {
+      return null;
+    }
+    
+    const item = items.pop();
+    await this.saveItems(items);
+    return item;
+  }
+  
+  /**
    * Load and parse a JSON file
    */
   private async loadJsonFile(filename: string): Promise<any[]> {
@@ -158,6 +265,21 @@ export class JsonLoader implements QueueLoader {
     } catch (error) {
       logger.error(`Failed to load JSON file: ${filename}`, error);
       throw new Error(`Failed to load JSON file: ${filename}`);
+    }
+  }
+  
+  /**
+   * Save data to a JSON file
+   */
+  private async saveJsonFile(filename: string, data: any[]): Promise<void> {
+    const filepath = path.join(TEMPLATES_DIR, filename);
+    
+    try {
+      const jsonData = JSON.stringify(data, null, 2);
+      await fs.writeFile(filepath, jsonData, 'utf-8');
+    } catch (error) {
+      logger.error(`Failed to save JSON file: ${filename}`, error);
+      throw new Error(`Failed to save JSON file: ${filename}`);
     }
   }
   

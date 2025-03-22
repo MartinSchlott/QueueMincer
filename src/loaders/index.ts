@@ -37,6 +37,31 @@ export interface QueueLoader {
    * Get the item schema if available
    */
   getItemSchema(): Record<string, string> | null;
+  
+  /**
+   * Save the complete list of items to the source
+   */
+  saveItems(items: any[]): Promise<void>;
+  
+  /**
+   * Add a single item to the source at the front
+   */
+  addItemFront(item: any): Promise<void>;
+  
+  /**
+   * Add a single item to the source at the back
+   */
+  addItemBack(item: any): Promise<void>;
+  
+  /**
+   * Remove and return an item from the front of the source
+   */
+  removeItemFront(): Promise<any | null>;
+  
+  /**
+   * Remove and return an item from the back of the source
+   */
+  removeItemBack(): Promise<any | null>;
 }
 
 /**

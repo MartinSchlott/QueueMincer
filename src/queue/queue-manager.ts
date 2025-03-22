@@ -15,12 +15,12 @@ export interface QueueManager {
   /**
    * Get the next item from the front of the queue
    */
-  getFront(): any | null;
+  getFront(): Promise<any | null>;
   
   /**
    * Get the next item from the back of the queue
    */
-  getBack(): any | null;
+  getBack(): Promise<any | null>;
   
   /**
    * Add an item to the front of the queue
@@ -91,67 +91,73 @@ export class DefaultQueueManager implements QueueManager {
   /**
    * Get the next item from the front of the queue
    */
-  getFront(): any | null {
-    if (!this.config.inMemory) {
-      throw new Error('Cannot get items directly when inMemory is false');
+  async getFront(): Promise<any | null> {
+    // In memory mode - use the in-memory array
+    if (this.config.inMemory) {
+      if (this.items.length === 0) {
+        return null;
+      }
+      
+      return this.items.shift() || null;
     }
     
-    if (this.items.length === 0) {
-      return null;
-    }
-    
-    return this.items.shift() || null;
+    // Direct mode - delegate to loader
+    return await this.loader.removeItemFront();
   }
 
   /**
    * Get the next item from the back of the queue
    */
-  getBack(): any | null {
-    if (!this.config.inMemory) {
-      throw new Error('Cannot get items directly when inMemory is false');
+  async getBack(): Promise<any | null> {
+    // In memory mode - use the in-memory array
+    if (this.config.inMemory) {
+      if (this.items.length === 0) {
+        return null;
+      }
+      
+      return this.items.pop() || null;
     }
     
-    if (this.items.length === 0) {
-      return null;
-    }
-    
-    return this.items.pop() || null;
+    // Direct mode - delegate to loader
+    return await this.loader.removeItemBack();
   }
 
   /**
    * Add an item to the front of the queue
    */
   async pushFront(item: any): Promise<void> {
-    if (this.config.loader === 'memory' && !this.config.put) {
-      throw new Error('Cannot push items when put is not enabled');
-    }
-    
     // Validate the item
     if (!this.validateItem(item)) {
       throw new Error('Item does not match the required schema');
     }
     
+    // In memory mode - use the in-memory array
     if (this.config.inMemory) {
       this.items.unshift(item);
+      return;
     }
+    
+    // Direct mode - delegate to loader
+    await this.loader.addItemFront(item);
   }
 
   /**
    * Add an item to the back of the queue
    */
   async pushBack(item: any): Promise<void> {
-    if (this.config.loader === 'memory' && !this.config.put) {
-      throw new Error('Cannot push items when put is not enabled');
-    }
-    
     // Validate the item
     if (!this.validateItem(item)) {
       throw new Error('Item does not match the required schema');
     }
     
+    // In memory mode - use the in-memory array
     if (this.config.inMemory) {
       this.items.push(item);
+      return;
     }
+    
+    // Direct mode - delegate to loader
+    await this.loader.addItemBack(item);
   }
 
   /**
@@ -164,9 +170,14 @@ export class DefaultQueueManager implements QueueManager {
     
     const newItems = await this.loader.loadTemplate(templateId);
     
+    // In memory mode - update the in-memory array
     if (this.config.inMemory) {
       this.items = newItems;
+      return;
     }
+    
+    // Direct mode - delegate to loader
+    await this.loader.saveItems(newItems);
   }
 
   /**
@@ -179,9 +190,15 @@ export class DefaultQueueManager implements QueueManager {
     
     const newItems = await this.loader.loadTemplate(templateId);
     
+    // In memory mode - update the in-memory array
     if (this.config.inMemory) {
       this.items.unshift(...newItems);
+      return;
     }
+    
+    // Direct mode - load current items, combine with new items, and save
+    const currentItems = await this.loader.getItems();
+    await this.loader.saveItems([...newItems, ...currentItems]);
   }
 
   /**
@@ -194,9 +211,15 @@ export class DefaultQueueManager implements QueueManager {
     
     const newItems = await this.loader.loadTemplate(templateId);
     
+    // In memory mode - update the in-memory array
     if (this.config.inMemory) {
       this.items.push(...newItems);
+      return;
     }
+    
+    // Direct mode - load current items, combine with new items, and save
+    const currentItems = await this.loader.getItems();
+    await this.loader.saveItems([...currentItems, ...newItems]);
   }
 
   /**
